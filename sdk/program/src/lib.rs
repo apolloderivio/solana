@@ -532,6 +532,7 @@ pub mod syscalls;
 pub mod system_instruction;
 pub mod system_program;
 pub mod sysvar;
+pub mod turbobook;
 pub mod vote;
 pub mod wasm;
 
