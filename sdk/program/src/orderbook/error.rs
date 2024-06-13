@@ -1,13 +1,11 @@
-use {
-    crate::decode_error::DecodeError,
-    log::*,
-    num_derive::{FromPrimitive, ToPrimitive},
-    thiserror::Error,
-};
+use num_enum::IntoPrimitive;
+use solana_program::{entrypoint::ProgramResult, msg, program_error::ProgramError};
+use thiserror::Error;
 
 // todo: group error blocks by kind
 // todo: add comments which indicate decimal code for an error
-#[derive(Error, Debug, Clone, PartialEq, Eq, FromPrimitive, ToPrimitive)]
+#[derive(Error, Debug, Clone, PartialEq, Eq, IntoPrimitive)]
+#[repr(u32)]
 pub enum MangoError {
     #[error("")]
     SomeError,
@@ -161,57 +159,20 @@ pub enum MangoError {
     OpenbookV2OpenOrdersExistAlready,
 }
 
-impl<E> DecodeError<E> for MangoError {
-    fn type_of() -> &'static str {
-        "MangoError"
+impl From<MangoError> for ProgramError {
+    fn from(e: MangoError) -> Self {
+        ProgramError::Custom(e as u32)
     }
 }
 
-/// Creates an Error with a particular message, using format!() style arguments
-///
-/// Example: error_msg!("index {} not found", index)
-#[macro_export]
-macro_rules! error_msg {
-    ($($arg:tt)*) => {
-        error!(MangoError::SomeError).context(format!($($arg)*))
-    };
+#[track_caller]
+#[inline(always)]
+pub fn assert_with_msg(v: bool, err: impl Into<ProgramError>, msg: &str) -> ProgramResult {
+    if v {
+        Ok(())
+    } else {
+        let caller = std::panic::Location::caller();
+        msg!("{}. \n{}", msg, caller);
+        Err(err.into())
+    }
 }
-
-/// Creates an Error with a particular message, using format!() style arguments
-///
-/// Example: error_msg_typed!(TokenPositionMissing, "index {} not found", index)
-#[macro_export]
-macro_rules! error_msg_typed {
-    ($code:expr, $($arg:tt)*) => {
-        error!($code).context(format!($($arg)*))
-    };
-}
-
-/// Like anchor's require!(), but with a customizable message
-///
-/// Example: require_msg!(condition, "the condition on account {} was violated", account_key);
-#[macro_export]
-macro_rules! require_msg {
-    ($invariant:expr, $($arg:tt)*) => {
-        if !($invariant) {
-            return Err(error_msg!($($arg)*));
-        }
-    };
-}
-
-/// Like anchor's require!(), but with a customizable message and type
-///
-/// Example: require_msg_typed!(condition, "the condition on account {} was violated", account_key);
-#[macro_export]
-macro_rules! require_msg_typed {
-    ($invariant:expr, $code:expr, $($arg:tt)*) => {
-        if !($invariant) {
-            return Err(error_msg_typed!($code, $($arg)*));
-        }
-    };
-}
-
-pub use error_msg;
-pub use error_msg_typed;
-pub use require_msg;
-pub use require_msg_typed;
