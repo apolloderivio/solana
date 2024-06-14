@@ -38,7 +38,6 @@ impl<'a> Orderbook<'a> {
         &mut self,
         order: Order,
         event_queue: &mut EventQueue,
-        oracle_price: I80F48,
         mango_account_pk: &Pubkey,
         now_ts: u64,
         mut limit: u8,
@@ -47,19 +46,19 @@ impl<'a> Orderbook<'a> {
         let other_side = side.invert_side();
         let post_only = order.is_post_only();
         let mut post_target = order.post_target();
-        let (price_lots, price_data) = order.price(now_ts, oracle_price_lots, self)?;
+        let (price_lots, price_data) = order.price()?;
 
-        // generate new order id
+        // TODO: generate new order id
         let order_id = market.gen_order_id(side, price_data);
 
-        // IOC orders have a fee penalty applied regardless of match
-        let fee_penalty = if order.needs_penalty_fee() {
-            apply_penalty(market, mango_account)?
-        } else {
-            I80F48::ZERO
-        };
+        // // IOC orders have a fee penalty applied regardless of match
+        // let fee_penalty = if order.needs_penalty_fee() {
+        //     apply_penalty(market, mango_account)?
+        // } else {
+        //     I80F48::ZERO
+        // };
 
-        let perp_position = mango_account.perp_position_mut(market.perp_market_index)?;
+        // let perp_position = mango_account.perp_position_mut(market.perp_market_index)?;
 
         // Iterate through book and match against this new order.
         //
@@ -69,12 +68,11 @@ impl<'a> Orderbook<'a> {
         let mut remaining_quote_lots = order.max_quote_lots;
         let mut decremented_base_lots = 0i64;
         let mut decremented_quote_lots = 0i64;
-        let mut orders_to_change: Vec<(BookSideOrderHandle, i64)> = vec![];
-        let mut orders_to_delete: Vec<(BookSideOrderTree, u128)> = vec![];
+        let mut orders_to_change: Vec<(NodeHandle, i64)> = vec![];
+        let mut orders_to_delete: Vec<(NodeHandle, u128)> = vec![];
         let mut number_of_dropped_expired_orders = 0;
         let opposing_bookside = self.bookside_mut(other_side);
-        for best_opposing in opposing_bookside.iter_all_including_invalid(now_ts, oracle_price_lots)
-        {
+        for best_opposing in opposing_bookside.iter_all_including_invalid(now_ts) {
             if remaining_base_lots == 0 || remaining_quote_lots == 0 {
                 break;
             }
@@ -101,11 +99,11 @@ impl<'a> Orderbook<'a> {
             if !side.is_price_within_limit(best_opposing_price, price_lots) {
                 break;
             } else if post_only {
-                msg!("Order could not be placed due to PostOnly");
+                // msg!("Order could not be placed due to PostOnly");
                 post_target = None;
                 break; // return silently to not fail other instructions in tx
             } else if limit == 0 {
-                msg!("Order matching limit reached");
+                // msg!("Order matching limit reached");
                 post_target = None;
                 break;
             }
@@ -174,7 +172,7 @@ impl<'a> Orderbook<'a> {
                 if order_would_self_trade {
                     I80F48::ZERO
                 } else {
-                    market.maker_fee
+                    // market.maker_fee
                 },
                 best_opposing.node.timestamp,
                 *mango_account_pk,
@@ -183,7 +181,7 @@ impl<'a> Orderbook<'a> {
                     I80F48::ZERO
                 } else {
                     // NOTE: this does not include the IOC penalty, but this value is not used to calculate fees
-                    market.taker_fee
+                    // market.taker_fee
                 },
                 best_opposing_price,
                 match_base_lots,
@@ -191,11 +189,11 @@ impl<'a> Orderbook<'a> {
             event_queue.push_back(cast(fill)).unwrap();
             limit -= 1;
 
-            emit_stack(FilledPerpOrderLog {
-                mango_group: market.group.key(),
-                perp_market_index: market.perp_market_index,
-                seq_num,
-            });
+            // emit_stack(FilledPerpOrderLog {
+            //     mango_group: market.group.key(),
+            //     perp_market_index: market.perp_market_index,
+            //     seq_num,
+            // });
         }
         let total_quote_lots_taken = order.max_quote_lots - remaining_quote_lots;
         let total_base_lots_taken = order.max_base_lots - remaining_base_lots;
@@ -204,27 +202,27 @@ impl<'a> Orderbook<'a> {
 
         // Record the taker trade in the account already, even though it will only be
         // realized when the fill event gets executed
-        if total_quote_lots_taken > 0 || total_base_lots_taken > 0 {
-            perp_position.add_taker_trade(side, total_base_lots_taken, total_quote_lots_taken);
-            // reduce fees to apply by decrement take volume
-            let taker_fees_paid = apply_fees(
-                market,
-                mango_account,
-                total_quote_lots_taken - decremented_quote_lots,
-            )?;
-            emit_stack(PerpTakerTradeLog {
-                mango_group: market.group.key(),
-                mango_account: *mango_account_pk,
-                perp_market_index: market.perp_market_index,
-                taker_side: side as u8,
-                total_base_lots_taken,
-                total_base_lots_decremented: decremented_base_lots,
-                total_quote_lots_taken,
-                total_quote_lots_decremented: decremented_quote_lots,
-                taker_fees_paid: taker_fees_paid.to_bits(),
-                fee_penalty: fee_penalty.to_bits(),
-            });
-        }
+        // if total_quote_lots_taken > 0 || total_base_lots_taken > 0 {
+        //     perp_position.add_taker_trade(side, total_base_lots_taken, total_quote_lots_taken);
+        //     // reduce fees to apply by decrement take volume
+        //     let taker_fees_paid = apply_fees(
+        //         market,
+        //         mango_account,
+        //         total_quote_lots_taken - decremented_quote_lots,
+        //     )?;
+        //     emit_stack(PerpTakerTradeLog {
+        //         mango_group: market.group.key(),
+        //         mango_account: *mango_account_pk,
+        //         perp_market_index: market.perp_market_index,
+        //         taker_side: side as u8,
+        //         total_base_lots_taken,
+        //         total_base_lots_decremented: decremented_base_lots,
+        //         total_quote_lots_taken,
+        //         total_quote_lots_decremented: decremented_quote_lots,
+        //         taker_fees_paid: taker_fees_paid.to_bits(),
+        //         fee_penalty: fee_penalty.to_bits(),
+        //     });
+        // }
 
         // Apply changes to matched asks (handles invalidate on delete!)
         for (handle, new_quantity) in orders_to_change {
@@ -236,7 +234,7 @@ impl<'a> Orderbook<'a> {
                 .quantity = new_quantity;
         }
         for (component, key) in orders_to_delete {
-            let _removed_leaf = opposing_bookside.remove_by_key(component, key).unwrap();
+            let _removed_leaf = opposing_bookside.remove_by_key(key).unwrap();
         }
 
         //
@@ -248,19 +246,19 @@ impl<'a> Orderbook<'a> {
         if book_base_quantity <= 0 {
             post_target = None;
         }
-        if post_target.is_some() {
-            // price limit check computed lazily to save CU on average
-            let native_price = market.lot_to_native_price(price_lots);
-            if !market.inside_price_limit(side, native_price, oracle_price) {
-                msg!("Posting on book disallowed due to price limits, order price {:?}, oracle price {:?}", native_price, oracle_price);
-                post_target = None;
-            }
-        }
+        // if post_target.is_some() {
+        //     // price limit check computed lazily to save CU on average
+        //     let native_price = market.lot_to_native_price(price_lots);
+        //     if !market.inside_price_limit(side, native_price, oracle_price) {
+        //         msg!("Posting on book disallowed due to price limits, order price {:?}, oracle price {:?}", native_price, oracle_price);
+        //         post_target = None;
+        //     }
+        // }
         if let Some(order_tree_target) = post_target {
             let bookside = self.bookside_mut(side);
 
             // Drop an expired order if possible
-            if let Some(expired_order) = bookside.remove_one_expired(order_tree_target, now_ts) {
+            if let Some(expired_order) = bookside.remove_one_expired(now_ts) {
                 let event = OutEvent::from_leaf_node(
                     side,
                     now_ts,
@@ -272,8 +270,7 @@ impl<'a> Orderbook<'a> {
 
             if bookside.is_full() {
                 // If this bid is higher than lowest bid, boot that bid and insert this one
-                let (worst_order, worst_price) =
-                    bookside.remove_worst(now_ts, oracle_price_lots).unwrap();
+                let (worst_order, worst_price) = bookside.remove_worst(now_ts).unwrap();
                 // MangoErrorCode::OutOfSpace
                 require!(
                     side.is_price_better(price_lots, worst_price),
@@ -300,26 +297,25 @@ impl<'a> Orderbook<'a> {
                 order.peg_limit(),
                 order.client_order_id,
             );
-            let _result = bookside.insert_leaf(order_tree_target, &new_order)?;
+            let _result = bookside.insert_leaf(&new_order)?;
 
             // TODO OPT remove if PlacePerpOrder needs more compute
-            msg!(
-                "{} on book order_id={} quantity={} price={}",
-                match side {
-                    Side::Bid => "bid",
-                    Side::Ask => "ask",
-                },
-                order_id,
-                book_base_quantity,
-                price_lots
-            );
-
-            mango_account.add_perp_order(
-                market.perp_market_index,
-                side,
-                order_tree_target,
-                &new_order,
-            )?;
+            // msg!(
+            //     "{} on book order_id={} quantity={} price={}",
+            //     match side {
+            //         Side::Bid => "bid",
+            //         Side::Ask => "ask",
+            //     },
+            //     order_id,
+            //     book_base_quantity,
+            //     price_lots
+            // );
+            // mango_account.add_perp_order(
+            //     market.perp_market_index,
+            //     side,
+            //     order_tree_target,
+            //     &new_order,
+            // )?;
         }
 
         if post_target.is_some() {
@@ -366,10 +362,10 @@ impl<'a> Orderbook<'a> {
                 // It's possible for the order to be filled or expired already.
                 // There will be an event on the queue, the perp order slot is freed once
                 // it is processed.
-                msg!(
-                    "order {} was not found on orderbook, expired or filled already",
-                    order_id
-                );
+                // msg!(
+                //     "order {} was not found on orderbook, expired or filled already",
+                //     order_id
+                // );
             } else {
                 cancel_result?;
             }
@@ -404,9 +400,7 @@ impl<'a> Orderbook<'a> {
         let side = side_and_tree.side();
         let book_component = side_and_tree.order_tree();
         let order_id = oo.id;
-        let leaf_node_opt = self
-            .bookside_mut(side)
-            .remove_by_key(book_component, order_id);
+        let leaf_node_opt = self.bookside_mut(side).remove_by_key(order_id);
 
         // If the order is still on the book, cancel it without an OutEvent and free up the order
         // quantity immediately. If it's not on the book, the OutEvent or FillEvent is responsible
@@ -439,7 +433,7 @@ impl<'a> Orderbook<'a> {
         let side = side_and_tree.side();
         let book_component = side_and_tree.order_tree();
         let leaf_node = self.bookside_mut(side).
-        remove_by_key(book_component, order_id).ok_or_else(|| {
+        remove_by_key(order_id).ok_or_else(|| {
             // possibly already filled or expired?
             error_msg_typed!(MangoError::PerpOrderIdNotFound, "no perp order with id {order_id}, side {side:?}, component {book_component:?} found on the orderbook")
         })?;

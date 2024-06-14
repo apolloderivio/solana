@@ -1,6 +1,5 @@
 use super::*;
 use crate::clock::Clock;
-use crate::orderbook::error::MangoError;
 use crate::program_error::ProgramError;
 
 /// Perp order parameters
@@ -75,57 +74,15 @@ impl Order {
         order_type == PostOrderType::PostOnly || order_type == PostOrderType::PostOnlySlide
     }
 
-    /// Some order types (PostOnlySlide) may override the price that is passed in,
-    /// this function computes the order-type-adjusted price.
-    fn price_for_order_type(
-        &self,
-        now_ts: u64,
-        oracle_price_lots: i64,
-        price_lots: i64,
-        order_type: PostOrderType,
-        order_book: &Orderbook,
-    ) -> i64 {
-        if order_type == PostOrderType::PostOnlySlide {
-            if let Some(best_other_price) = order_book
-                .bookside(self.side.invert_side())
-                .best_price(now_ts, oracle_price_lots)
-            {
-                post_only_slide_limit(self.side, best_other_price, price_lots)
-            } else {
-                price_lots
-            }
-        } else {
-            price_lots
-        }
-    }
-
     /// Compute the price_lots this order is currently at, as well as the price_data that
     /// would be stored in its OrderTree node if the order is posted to the orderbook.
-    pub fn price(
-        &self,
-        now_ts: u64,
-        oracle_price_lots: i64,
-        order_book: &Orderbook,
-    ) -> Result<(i64, u64), ProgramError> {
+    pub fn price(&self) -> Result<(i64, u64), ProgramError> {
         let price_lots = match self.params {
             OrderParams::Market { .. } => market_order_limit_for_side(self.side),
             OrderParams::ImmediateOrCancel { price_lots, .. } => price_lots,
-            OrderParams::Fixed {
-                price_lots,
-                order_type,
-            } => self.price_for_order_type(
-                now_ts,
-                oracle_price_lots,
-                price_lots,
-                order_type,
-                order_book,
-            ),
+            OrderParams::Fixed { price_lots, .. } => price_lots,
         };
-        let price_data = fixed_price_data(price_lots)?;
-        if price_data == 0 {
-            return Err(MangoError::SomeError.into());
-        }
-        Ok((price_lots, price_data))
+        Ok((price_lots, price_lots as u64))
     }
 }
 

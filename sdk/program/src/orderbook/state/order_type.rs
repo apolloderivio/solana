@@ -34,10 +34,6 @@ pub enum PlaceOrderType {
     ///
     /// Equivalent to ImmediateOrCancel with price=i64::MAX.
     Market,
-
-    /// If existing orders match with this order, adjust the price to just barely
-    /// not match. Always places an order on the book.
-    PostOnlySlide,
 }
 
 impl PlaceOrderType {
@@ -47,7 +43,6 @@ impl PlaceOrderType {
             Self::ImmediateOrCancel => Err(MangoError::SomeError.into()),
             Self::Limit => Ok(PostOrderType::Limit),
             Self::PostOnly => Ok(PostOrderType::PostOnly),
-            Self::PostOnlySlide => Ok(PostOrderType::PostOnlySlide),
         }
     }
 }
@@ -73,10 +68,6 @@ pub enum PostOrderType {
     /// Never take any existing orders, post the order on the book if possible.
     /// If existing orders can match with this order, do nothing.
     PostOnly,
-
-    /// If existing orders match with this order, adjust the price to just barely
-    /// not match. Always places an order on the book.
-    PostOnlySlide,
 }
 
 #[derive(

@@ -59,7 +59,7 @@ impl BookSide {
     }
 
     /// Remove the overall worst-price order.
-    pub fn remove_worst(&mut self, now_ts: u64, oracle_price_lots: i64) -> Option<(LeafNode, i64)> {
+    pub fn remove_worst(&mut self, now_ts: u64) -> Option<(LeafNode, i64)> {
         let worst_fixed = self.nodes.find_worst(&self.root);
         let side = self.nodes.order_tree_type().side();
         let worse = rank_orders(side, worst_fixed, now_ts)?;
@@ -85,15 +85,10 @@ impl BookSide {
     }
 
     /// Return the quantity of orders that can be matched by an order at `limit_price_lots`
-    pub fn quantity_at_price(
-        &self,
-        limit_price_lots: i64,
-        now_ts: u64,
-        oracle_price_lots: i64,
-    ) -> i64 {
+    pub fn quantity_at_price(&self, limit_price_lots: i64, now_ts: u64) -> i64 {
         let side = self.side();
         let mut sum = 0;
-        for item in self.iter_valid(now_ts, oracle_price_lots) {
+        for item in self.iter_valid(now_ts) {
             if side.is_price_better(limit_price_lots, item.price_lots) {
                 break;
             }
@@ -103,19 +98,15 @@ impl BookSide {
     }
 
     /// Return the price of the order closest to the spread
-    pub fn best_price(&self, now_ts: u64, oracle_price_lots: i64) -> Option<i64> {
-        Some(
-            self.iter_valid(now_ts, oracle_price_lots)
-                .next()?
-                .price_lots,
-        )
+    pub fn best_price(&self, now_ts: u64) -> Option<i64> {
+        Some(self.iter_valid(now_ts).next()?.price_lots)
     }
 
     /// Walk up the book `quantity` units and return the price at that level. If `quantity` units
     /// not on book, return None
-    pub fn impact_price(&self, quantity: i64, now_ts: u64, oracle_price_lots: i64) -> Option<i64> {
+    pub fn impact_price(&self, quantity: i64, now_ts: u64) -> Option<i64> {
         let mut sum: i64 = 0;
-        for order in self.iter_valid(now_ts, oracle_price_lots) {
+        for order in self.iter_valid(now_ts) {
             sum += order.node.quantity;
             if sum >= quantity {
                 return Some(order.price_lots);
@@ -126,18 +117,13 @@ impl BookSide {
 
     /// Walk up the book given base units and return the amount in quote lots an order would
     /// be filled at. If not enough liquidity is on book, return None
-    pub fn matched_amount(
-        &self,
-        quantity: i64,
-        now_ts: u64,
-        oracle_price_lots: i64,
-    ) -> Option<i64> {
+    pub fn matched_amount(&self, quantity: i64, now_ts: u64) -> Option<i64> {
         if quantity <= 0 {
             return None;
         }
         let mut sum_qty: i64 = 0;
         let mut sum_amt: i64 = 0;
-        for order in self.iter_valid(now_ts, oracle_price_lots) {
+        for order in self.iter_valid(now_ts) {
             sum_qty += order.node.quantity;
             sum_amt += order.node.quantity * order.price_lots;
             let extra_qty = sum_qty - quantity;
@@ -152,18 +138,13 @@ impl BookSide {
     /// Walk up the book given quote units and return the quantity in base lots
     /// an order would need to request to match at least the requested amount.
     /// If not enough liquidity is on book, return None
-    pub fn matched_quantity(
-        &self,
-        amount: i64,
-        now_ts: u64,
-        oracle_price_lots: i64,
-    ) -> Option<i64> {
+    pub fn matched_quantity(&self, amount: i64, now_ts: u64) -> Option<i64> {
         if amount <= 0 {
             return None;
         }
         let mut sum_qty: i64 = 0;
         let mut sum_amt: i64 = 0;
-        for order in self.iter_valid(now_ts, oracle_price_lots) {
+        for order in self.iter_valid(now_ts) {
             sum_qty += order.node.quantity;
             sum_amt += order.node.quantity * order.price_lots;
             let extra_amt = sum_amt - amount;
@@ -181,7 +162,6 @@ impl BookSide {
 mod tests {
     use super::*;
     use bytemuck::Zeroable;
-    use std::collections::HashSet;
 
     fn new_order_tree(order_tree_type: OrderTreeType) -> OrderTreeNodes {
         let mut ot = OrderTreeNodes::zeroed();
@@ -199,50 +179,22 @@ mod tests {
         };
 
         let mut order_tree = new_order_tree(order_tree_type);
-        let mut root_fixed = OrderTreeRoot::zeroed();
-        let mut root_pegged = OrderTreeRoot::zeroed();
-        let new_leaf = |key: u128| {
-            LeafNode::new(
-                0,
-                key,
-                Pubkey::default(),
-                0,
-                1,
-                PostOrderType::Limit,
-                0,
-                -1,
-                0,
-            )
+        let mut root = OrderTreeRoot {
+            maybe_node: 0,
+            leaf_count: 0,
         };
+        let new_leaf =
+            |key: u128| LeafNode::new(0, key, Pubkey::default(), 0, 1, PostOrderType::Limit, 0, 0);
 
         // add 100 leaves to each BookSide, mostly random
         let mut keys = vec![];
 
         // ensure at least one oracle pegged order visible even at oracle price 1
-        let key = new_node_key(side, oracle_pegged_price_data(20), 0);
+        let key = new_node_key(side, 20, 0);
         keys.push(key);
-        order_tree
-            .insert_leaf(&mut root_pegged, &new_leaf(key))
-            .unwrap();
+        order_tree.insert_leaf(&mut root, &new_leaf(key)).unwrap();
 
-        let mut pegged_prices = vec![];
-
-        while root_pegged.leaf_count < 100 {
-            let price = rng.gen_range(-20..20);
-            let price_data: u64 = oracle_pegged_price_data(price);
-            let seq_num: u64 = rng.gen_range(0..1000);
-            let key = new_node_key(side, price_data, seq_num);
-            if keys.contains(&key) {
-                continue;
-            }
-            keys.push(key);
-            order_tree
-                .insert_leaf(&mut root_pegged, &new_leaf(key))
-                .unwrap();
-            pegged_prices.push(price);
-        }
-
-        while root_fixed.leaf_count < 100 {
+        while root.leaf_count < 100 {
             let price_data: u64 = rng.gen_range(1..50);
             let seq_num: u64 = rng.gen_range(0..1000);
             let key = new_node_key(side, price_data, seq_num);
@@ -250,15 +202,11 @@ mod tests {
                 continue;
             }
             keys.push(key);
-            order_tree
-                .insert_leaf(&mut root_fixed, &new_leaf(key))
-                .unwrap();
+            order_tree.insert_leaf(&mut root, &new_leaf(key)).unwrap();
         }
 
         let bookside = BookSide {
-            roots: [root_fixed, root_pegged],
-            reserved_roots: [OrderTreeRoot::zeroed(); 4],
-            reserved: [0; 256],
+            root,
             nodes: order_tree,
         };
 
@@ -301,18 +249,10 @@ mod tests {
     }
 
     fn bookside_setup() -> BookSide {
-        bookside_setup_advanced(
-            &[(100, 0), (120, 5)],
-            &[(-10, 0, 100), (-15, 0, -1), (-20, 7, 95)],
-            Side::Bid,
-        )
+        bookside_setup_advanced(&[(100, 0), (120, 5)], Side::Bid)
     }
 
-    fn bookside_setup_advanced(
-        fixed: &[(i64, u16)],
-        pegged: &[(i64, u16, i64)],
-        side: Side,
-    ) -> BookSide {
+    fn bookside_setup_advanced(fixed: &[(i64, u16)], side: Side) -> BookSide {
         use std::cell::RefCell;
 
         let order_tree_type = match side {
@@ -321,8 +261,7 @@ mod tests {
         };
 
         let order_tree = RefCell::new(new_order_tree(order_tree_type));
-        let mut root_fixed = OrderTreeRoot::zeroed();
-        let mut root_pegged = OrderTreeRoot::zeroed();
+        let mut root = OrderTreeRoot::zeroed();
         let new_node = |key: u128, tif: u16, peg_limit: i64| {
             LeafNode::new(
                 0,
@@ -332,7 +271,6 @@ mod tests {
                 1000,
                 PostOrderType::Limit,
                 tif,
-                peg_limit,
                 0,
             )
         };
@@ -340,7 +278,7 @@ mod tests {
             let key = new_node_key(side, fixed_price_data(price).unwrap(), 0);
             order_tree
                 .borrow_mut()
-                .insert_leaf(&mut root_fixed, &new_node(key, tif, -1))
+                .insert_leaf(&mut root, &new_node(key, tif, -1))
                 .unwrap();
         };
         let mut add_pegged = |price_offset: i64, tif: u16, peg_limit: i64| {
@@ -440,15 +378,15 @@ mod tests {
             Side::Ask,
         ));
 
-        let order_prices = |now_ts: u64, oracle: i64| -> Vec<i64> {
+        let order_prices = |now_ts: u64| -> Vec<i64> {
             bookside
                 .borrow()
-                .iter_valid(now_ts, oracle)
+                .iter_valid(now_ts)
                 .map(|it| it.price_lots)
                 .collect()
         };
 
-        assert_eq!(order_prices(0, 200), vec![100, 170, 180]);
-        assert_eq!(order_prices(0, 100), vec![70, 80]);
+        assert_eq!(order_prices(0), vec![100, 170, 180]);
+        assert_eq!(order_prices(0), vec![70, 80]);
     }
 }

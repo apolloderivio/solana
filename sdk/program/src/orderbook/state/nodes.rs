@@ -158,20 +158,14 @@ pub struct LeafNode {
     /// The time the order was placed
     pub timestamp: u64,
 
-    /// If the effective price of an oracle pegged order exceeds this limit,
-    /// it will be considered invalid and may be removed.
-    ///
-    /// Only applicable in the oracle_pegged OrderTree
-    pub peg_limit: i64,
-
     /// User defined id for this order, used in FillEvents
     pub client_order_id: u64,
 
-    pub reserved: [u8; 32],
+    pub reserved: [u8; 40],
 }
 const_assert_eq!(
     size_of::<LeafNode>(),
-    4 + 1 + 1 + 1 + 1 + 16 + 32 + 8 + 8 + 8 + 8 + 32
+    4 + 1 + 1 + 1 + 1 + 16 + 32 + 8 + 8 + 8 + 40
 );
 const_assert_eq!(size_of::<LeafNode>(), NODE_SIZE);
 const_assert_eq!(size_of::<LeafNode>() % 8, 0);
@@ -186,7 +180,6 @@ impl LeafNode {
         timestamp: u64,
         order_type: PostOrderType,
         time_in_force: u16,
-        peg_limit: i64,
         client_order_id: u64,
     ) -> Self {
         Self {
@@ -200,7 +193,6 @@ impl LeafNode {
             owner,
             quantity,
             timestamp,
-            peg_limit,
             client_order_id,
             reserved: [0; 32],
         }
