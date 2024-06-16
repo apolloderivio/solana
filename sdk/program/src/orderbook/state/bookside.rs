@@ -4,7 +4,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use static_assertions::const_assert_eq;
 
 #[repr(C)]
-#[derive(Debug, BorshDeserialize, BorshSerialize, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, BorshDeserialize, BorshSerialize, bytemuck::Pod, bytemuck::Zeroable)]
 #[borsh(crate = "borsh")]
 pub struct BookSide {
     pub root: OrderTreeRoot,
@@ -14,7 +14,7 @@ const_assert_eq!(
     std::mem::size_of::<BookSide>(),
     std::mem::size_of::<OrderTreeNodes>() + std::mem::size_of::<OrderTreeRoot>()
 );
-const_assert_eq!(std::mem::size_of::<BookSide>(), 123712);
+const_assert_eq!(std::mem::size_of::<BookSide>(), 123416);
 const_assert_eq!(std::mem::size_of::<BookSide>() % 8, 0);
 
 impl BookSide {
@@ -308,14 +308,14 @@ mod tests {
     fn bookside_order_filtering() {
         let bookside = bookside_setup();
 
-        let order_prices = |now_ts: u64, oracle: i64| -> Vec<i64> {
+        let order_prices = |now_ts: u64| -> Vec<i64> {
             bookside
-                .iter_valid(now_ts, oracle)
+                .iter_valid(now_ts)
                 .map(|it| it.price_lots)
                 .collect()
         };
 
-        assert_eq!(order_prices(0, 100), vec![120, 100, 90, 85, 80]);
+        assert_eq!(order_prices(0), vec![120, 100, 90, 85, 80]);
         assert_eq!(order_prices(1004, 100), vec![120, 100, 90, 85, 80]);
         assert_eq!(order_prices(1005, 100), vec![100, 90, 85, 80]);
         assert_eq!(order_prices(1006, 100), vec![100, 90, 85, 80]);

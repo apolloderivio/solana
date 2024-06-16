@@ -236,7 +236,7 @@ pub struct FreeNode {
 const_assert_eq!(size_of::<FreeNode>(), NODE_SIZE);
 const_assert_eq!(size_of::<FreeNode>() % 8, 0);
 
-#[derive(bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]
 pub struct AnyNode {
     pub tag: u8,

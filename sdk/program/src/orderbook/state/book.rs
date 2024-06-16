@@ -1,4 +1,4 @@
-use super::*;
+use super::bookside::BookSide;
 use crate::{program_error::ProgramError, pubkey::Pubkey};
 use bytemuck::cast;
 use fixed::types::I80F48;

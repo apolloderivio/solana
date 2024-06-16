@@ -23,7 +23,7 @@ pub trait QueueHeader: bytemuck::Pod {
 }
 
 #[repr(C)]
-#[derive(Debug, BorshDeserialize, BorshSerialize, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, bytemuck::Zeroable)]
 #[borsh(crate = "borsh")]
 pub struct EventQueue {
     pub header: EventQueueHeader,
@@ -128,6 +128,8 @@ impl<'a> Iterator for EventQueueIterator<'a> {
     }
 }
 
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct EventQueueHeader {
     head: u32,
     count: u32,
@@ -162,7 +164,8 @@ impl QueueHeader for EventQueueHeader {
 #[allow(dead_code)]
 const EVENT_SIZE: usize = 208;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct AnyEvent {
     pub event_type: u8,
     pub padding: [u8; 207],

@@ -1,4 +1,4 @@
-use super::*;
+use super::order_type::{PostOrderType, SelfTradeBehavior, Side};
 use crate::clock::Clock;
 use crate::program_error::ProgramError;
 
@@ -42,7 +42,8 @@ pub enum OrderParams {
 impl Order {
     /// Convert an input expiry timestamp to a time_in_force value
     pub fn tif_from_expiry(expiry_timestamp: u64) -> Option<u16> {
-        let now_ts: u64 = Clock::get().unwrap().unix_timestamp.try_into().unwrap();
+        let clock = Clock::get()?;
+        let now_ts: u64 = clock.unix_timestamp as u64;
         if expiry_timestamp != 0 {
             // If expiry is far in the future, clamp to u16::MAX seconds
             let tif = expiry_timestamp.saturating_sub(now_ts).min(u16::MAX.into());
@@ -71,7 +72,7 @@ impl Order {
             OrderParams::Fixed { order_type, .. } => order_type,
             _ => return false,
         };
-        order_type == PostOrderType::PostOnly || order_type == PostOrderType::PostOnlySlide
+        order_type == PostOrderType::PostOnly
     }
 
     /// Compute the price_lots this order is currently at, as well as the price_data that
