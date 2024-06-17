@@ -2,7 +2,6 @@ use super::{LeafNode, Side};
 use crate::{orderbook::error::MangoError, program_error::ProgramError, pubkey::Pubkey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{cast_ref, Pod, Zeroable};
-use fixed::types::I80F48;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 use std::mem::size_of;
@@ -32,8 +31,8 @@ pub struct EventQueue {
 unsafe impl bytemuck::Pod for EventQueue {}
 unsafe impl bytemuck::Zeroable for EventQueue {}
 
-const_assert_eq!(std::mem::size_of::<EventQueue>(), 16 + 488 * 208 + 64);
-const_assert_eq!(std::mem::size_of::<EventQueue>(), 101584);
+const_assert_eq!(std::mem::size_of::<EventQueue>(), 16 + 488 * 192 + 64);
+const_assert_eq!(std::mem::size_of::<EventQueue>(), 93776);
 const_assert_eq!(std::mem::size_of::<EventQueue>() % 8, 0);
 
 impl EventQueue {
@@ -167,14 +166,14 @@ impl QueueHeader for EventQueueHeader {
 }
 
 #[allow(dead_code)]
-const EVENT_SIZE: usize = 208;
+const EVENT_SIZE: usize = 192;
 
 #[derive(Copy, Clone, Debug, BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "borsh")]
 #[repr(C)]
 pub struct AnyEvent {
     pub event_type: u8,
-    pub padding: [u8; 207],
+    pub padding: [u8; 191],
 }
 unsafe impl bytemuck::Pod for AnyEvent {}
 unsafe impl bytemuck::Zeroable for AnyEvent {}
@@ -215,9 +214,6 @@ pub struct FillEvent {
     pub price: i64,
     pub quantity: i64, // number of quote lots
     pub maker_client_order_id: u64,
-    pub maker_fee: f32,
-    pub taker_fee: f32,
-    pub reserved: [u8; 8],
 }
 const_assert_eq!(size_of::<FillEvent>() % 8, 0);
 const_assert_eq!(size_of::<FillEvent>(), EVENT_SIZE);
@@ -233,11 +229,9 @@ impl FillEvent {
         maker: Pubkey,
         maker_order_id: u128,
         maker_client_order_id: u64,
-        maker_fee: I80F48,
         maker_timestamp: u64,
         taker: Pubkey,
         taker_client_order_id: u64,
-        taker_fee: I80F48,
         price: i64,
         quantity: i64,
     ) -> FillEvent {
@@ -251,17 +245,14 @@ impl FillEvent {
             maker,
             maker_order_id,
             maker_client_order_id,
-            maker_fee: maker_fee.to_num::<f32>(),
             maker_timestamp,
             taker,
             taker_client_order_id,
-            taker_fee: taker_fee.to_num::<f32>(),
             price,
             quantity,
             padding: Default::default(),
             padding2: Default::default(),
             padding3: Default::default(),
-            reserved: [0; 8],
         }
     }
 
@@ -312,9 +303,7 @@ impl<'a> TryFrom<&'a AnyEvent> for &'a FillEvent {
     }
 }
 
-#[derive(
-    Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable, BorshDeserialize, BorshSerialize,
-)]
+#[derive(Copy, Clone, Debug, BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "borsh")]
 #[repr(C)]
 pub struct OutEvent {
@@ -327,10 +316,12 @@ pub struct OutEvent {
     pub owner: Pubkey,
     pub quantity: i64,
     pub order_id: u128,
-    padding1: [u8; 128],
+    padding1: [u8; 112],
 }
 const_assert_eq!(size_of::<OutEvent>() % 8, 0);
 const_assert_eq!(size_of::<OutEvent>(), EVENT_SIZE);
+unsafe impl bytemuck::Pod for OutEvent {}
+unsafe impl bytemuck::Zeroable for OutEvent {}
 
 impl OutEvent {
     pub fn new(
@@ -352,7 +343,7 @@ impl OutEvent {
             owner,
             quantity,
             order_id,
-            padding1: [0; 128],
+            padding1: [0; 112],
         }
     }
 

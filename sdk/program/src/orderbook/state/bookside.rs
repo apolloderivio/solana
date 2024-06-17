@@ -61,8 +61,7 @@ impl BookSide {
     /// Remove the overall worst-price order.
     pub fn remove_worst(&mut self, now_ts: u64) -> Option<(LeafNode, i64)> {
         let worst_fixed = self.nodes.find_worst(&self.root);
-        let side = self.nodes.order_tree_type().side();
-        let worse = rank_orders(side, worst_fixed, now_ts)?;
+        let worse = rank_orders(worst_fixed, now_ts)?;
         let price = worse.price_lots;
         let key = worse.node.key;
         let n = self.remove_by_key(key)?;
@@ -72,8 +71,7 @@ impl BookSide {
     /// Remove the order with the lowest expiry timestamp in the component, if that's < now_ts.
     /// If there is none, try to remove the lowest expiry one from the other component.
     pub fn remove_one_expired(&mut self, now_ts: u64) -> Option<LeafNode> {
-        let root = &mut self.root;
-        self.nodes.remove_one_expired(root, now_ts)
+        self.nodes.remove_one_expired(&mut self.root, now_ts)
     }
 
     pub fn remove_by_key(&mut self, search_key: u128) -> Option<LeafNode> {

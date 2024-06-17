@@ -308,7 +308,7 @@ impl Message {
         let num_signed_accounts = usize::from(header.num_required_signatures);
         if key_index >= num_account_keys {
             let loaded_addresses_index = key_index.saturating_sub(num_account_keys);
-            let num_writable_dynamic_addresses = self
+            let num_writable_dynamic_addresses: usize = self
                 .address_table_lookups
                 .iter()
                 .map(|lookup| lookup.writable_indexes.len())

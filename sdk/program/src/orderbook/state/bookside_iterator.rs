@@ -74,7 +74,6 @@ fn fixed_to_result(fixed: (NodeHandle, &LeafNode), now_ts: u64) -> BookSideIterI
 ///
 /// (or the worse one, if `return_worse` is set)
 pub fn rank_orders<'a>(
-    side: Side,
     fixed: Option<(NodeHandle, &'a LeafNode)>,
     now_ts: u64,
 ) -> Option<BookSideIterItem<'a>> {
@@ -89,11 +88,9 @@ impl<'a> Iterator for BookSideIter<'a> {
     type Item = BookSideIterItem<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let side = self.fixed_iter.side();
-
         let f_peek = self.fixed_iter.peek();
 
-        let better = rank_orders(side, f_peek, self.now_ts)?;
+        let better = rank_orders(f_peek, self.now_ts)?;
         self.fixed_iter.next();
         Some(better)
     }

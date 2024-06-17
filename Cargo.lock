@@ -528,12 +528,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "az"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
-
-[[package]]
 name = "backoff"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1970,19 +1964,6 @@ dependencies = [
  "libc",
  "redox_syscall 0.2.10",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "fixed"
-version = "1.11.0"
-source = "git+https://github.com/blockworks-foundation/fixed.git?branch=v1.11.0-borsh0_10-mango#01516ae3e29418feb066b67830540aa81d04df05"
-dependencies = [
- "az",
- "borsh 0.10.3",
- "bytemuck",
- "half",
- "serde",
- "typenum",
 ]
 
 [[package]]
@@ -6624,7 +6605,6 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "curve25519-dalek",
- "fixed",
  "getrandom 0.2.10",
  "itertools 0.10.5",
  "itertools 0.13.0",
