@@ -42,26 +42,6 @@ pub enum OrderState {
     Skipped,
 }
 
-/// Returns the state and current price of an oracle pegged order.
-///
-/// For pegged orders with offsets that let the price escape the 1..i64::MAX range,
-/// this function returns Skipped and clamps `price` to that range.
-///
-/// Orders that exceed their peg_limit will have Invalid state.
-fn oracle_pegged_price(oracle_price_lots: i64, node: &LeafNode, side: Side) -> (OrderState, i64) {
-    let price_data = node.price_data();
-    let price_offset = oracle_pegged_price_offset(price_data);
-    let price = oracle_price_lots.saturating_add(price_offset);
-    if (1..i64::MAX).contains(&price) {
-        if node.peg_limit != -1 && side.is_price_better(price, node.peg_limit) {
-            return (OrderState::Invalid, price);
-        } else {
-            return (OrderState::Valid, price);
-        }
-    }
-    (OrderState::Skipped, price.max(1))
-}
-
 /// Replace the price data in a binary tree `key` with the fixed order price data at `price_lots`.
 ///
 /// Used to convert oracle pegged keys into a form that allows comparison with fixed order keys.
