@@ -58,7 +58,7 @@ pub fn fixed_price_lots(price_data: u64) -> i64 {
 /// Each InnerNode has exactly two children, which are either InnerNodes themselves,
 /// or LeafNodes. The children share the top `prefix_len` bits of `key`. The left
 /// child has a 0 in the next bit, and the right a 1.
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, BorshDeserialize, BorshSerialize)]
+#[derive(Copy, Clone, BorshDeserialize, BorshSerialize)]
 #[repr(C)]
 #[borsh(crate = "borsh")]
 pub struct InnerNode {
@@ -82,6 +82,8 @@ pub struct InnerNode {
 
     pub reserved: [u8; 72],
 }
+unsafe impl bytemuck::Pod for InnerNode {}
+unsafe impl bytemuck::Zeroable for InnerNode {}
 const_assert_eq!(size_of::<InnerNode>(), 4 + 4 + 16 + 4 * 2 + 8 * 2 + 72);
 const_assert_eq!(size_of::<InnerNode>(), NODE_SIZE);
 const_assert_eq!(size_of::<InnerNode>() % 8, 0);
@@ -115,17 +117,7 @@ impl InnerNode {
 }
 
 /// LeafNodes represent an order in the binary tree
-#[derive(
-    Debug,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    bytemuck::Pod,
-    bytemuck::Zeroable,
-    BorshDeserialize,
-    BorshSerialize,
-)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, BorshDeserialize, BorshSerialize)]
 #[repr(C)]
 #[borsh(crate = "borsh")]
 pub struct LeafNode {
@@ -163,6 +155,8 @@ pub struct LeafNode {
 
     pub reserved: [u8; 40],
 }
+unsafe impl bytemuck::Pod for LeafNode {}
+unsafe impl bytemuck::Zeroable for LeafNode {}
 const_assert_eq!(
     size_of::<LeafNode>(),
     4 + 1 + 1 + 1 + 1 + 16 + 32 + 8 + 8 + 8 + 40
@@ -194,7 +188,7 @@ impl LeafNode {
             quantity,
             timestamp,
             client_order_id,
-            reserved: [0; 32],
+            reserved: [0; 40],
         }
     }
 
@@ -223,7 +217,7 @@ impl LeafNode {
     }
 }
 
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct FreeNode {
     pub(crate) tag: u8, // NodeTag
@@ -233,10 +227,13 @@ pub struct FreeNode {
     // ensure that FreeNode has the same 8-byte alignment as other nodes
     pub(crate) force_align: u64,
 }
+unsafe impl bytemuck::Pod for FreeNode {}
+unsafe impl bytemuck::Zeroable for FreeNode {}
 const_assert_eq!(size_of::<FreeNode>(), NODE_SIZE);
 const_assert_eq!(size_of::<FreeNode>() % 8, 0);
 
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "borsh")]
 #[repr(C)]
 pub struct AnyNode {
     pub tag: u8,
@@ -244,6 +241,8 @@ pub struct AnyNode {
     // ensure that AnyNode has the same 8-byte alignment as other nodes
     pub(crate) force_align: u64,
 }
+unsafe impl bytemuck::Pod for AnyNode {}
+unsafe impl bytemuck::Zeroable for AnyNode {}
 const_assert_eq!(size_of::<AnyNode>(), NODE_SIZE);
 const_assert_eq!(size_of::<AnyNode>() % 8, 0);
 const_assert_eq!(size_of::<AnyNode>(), size_of::<InnerNode>());
