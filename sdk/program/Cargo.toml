@@ -93,7 +93,7 @@ assert_matches = { workspace = true }
 serde_json = { workspace = true }
 static_assertions = { workspace = true }
 # Needed for orderbook program
-itertools = "0.10.3"
+itertools = "0.13.0"
 rand = "0.8.4"
 lazy_static = "1.4.0"
 num = "0.4.0"

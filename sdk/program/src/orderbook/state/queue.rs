@@ -1,14 +1,13 @@
+use super::{LeafNode, Side};
 use crate::{orderbook::error::MangoError, program_error::ProgramError, pubkey::Pubkey};
 use borsh::{BorshDeserialize, BorshSerialize};
-use bytemuck::cast_ref;
+use bytemuck::{cast_ref, Pod, Zeroable};
 use fixed::types::I80F48;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 use std::mem::size_of;
 
-use super::{LeafNode, Side};
-
-pub const MAX_NUM_EVENTS: u32 = 488;
+pub const MAX_NUM_EVENTS: usize = 488;
 
 pub trait QueueHeader: bytemuck::Pod {
     type Item: bytemuck::Pod + Copy;
@@ -23,13 +22,16 @@ pub trait QueueHeader: bytemuck::Pod {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Debug, BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "borsh")]
 pub struct EventQueue {
     pub header: EventQueueHeader,
-    pub buf: [AnyEvent; MAX_NUM_EVENTS as usize],
+    pub buf: [AnyEvent; MAX_NUM_EVENTS],
     pub reserved: [u8; 64],
 }
+unsafe impl bytemuck::Pod for EventQueue {}
+unsafe impl bytemuck::Zeroable for EventQueue {}
+
 const_assert_eq!(std::mem::size_of::<EventQueue>(), 16 + 488 * 208 + 64);
 const_assert_eq!(std::mem::size_of::<EventQueue>(), 101584);
 const_assert_eq!(std::mem::size_of::<EventQueue>() % 8, 0);
@@ -128,7 +130,10 @@ impl<'a> Iterator for EventQueueIterator<'a> {
     }
 }
 
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(
+    Debug, Copy, Clone, bytemuck::Zeroable, bytemuck::Pod, BorshDeserialize, BorshSerialize,
+)]
+#[borsh(crate = "borsh")]
 #[repr(C)]
 pub struct EventQueueHeader {
     head: u32,
@@ -164,12 +169,15 @@ impl QueueHeader for EventQueueHeader {
 #[allow(dead_code)]
 const EVENT_SIZE: usize = 208;
 
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Debug, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "borsh")]
 #[repr(C)]
 pub struct AnyEvent {
     pub event_type: u8,
     pub padding: [u8; 207],
 }
+unsafe impl bytemuck::Pod for AnyEvent {}
+unsafe impl bytemuck::Zeroable for AnyEvent {}
 
 const_assert_eq!(size_of::<AnyEvent>(), EVENT_SIZE);
 
@@ -181,9 +189,7 @@ pub enum EventType {
     Liquidate,
 }
 
-#[derive(
-    Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable, BorshDeserialize, BorshSerialize,
-)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable, BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "borsh")]
 #[repr(C)]
 pub struct FillEvent {
