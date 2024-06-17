@@ -214,9 +214,9 @@ mod tests {
             let mut total = 0;
             let ascending = order_tree_type == OrderTreeType::Asks;
             let mut last_price = if ascending { 0 } else { i64::MAX };
-            for order in bookside.iter_all_including_invalid(0, oracle_price_lots) {
+            for order in bookside.iter_all_including_invalid(0) {
                 let price = order.price_lots;
-                println!("{} {:?} {price}", order.node.key, order.handle.order_tree);
+                println!("{} {:?} {price}", order.node.key, order.handle);
                 if ascending {
                     assert!(price >= last_price);
                 } else {
@@ -226,12 +226,6 @@ mod tests {
                 total += 1;
             }
             assert!(total >= 101); // some oracle peg orders could be skipped
-
-            let skipped_pegged_orders = pegged_prices
-                .iter()
-                .filter(|x| oracle_price_lots + **x <= 0)
-                .count();
-            assert_eq!(total, 200 - skipped_pegged_orders);
             if oracle_price_lots > 20 {
                 assert_eq!(total, 200);
             }
@@ -260,7 +254,7 @@ mod tests {
 
         let order_tree = RefCell::new(new_order_tree(order_tree_type));
         let mut root = OrderTreeRoot::zeroed();
-        let new_node = |key: u128, tif: u16, peg_limit: i64| {
+        let new_node = |key: u128, tif: u16| {
             LeafNode::new(
                 0,
                 key,
@@ -276,28 +270,16 @@ mod tests {
             let key = new_node_key(side, fixed_price_data(price).unwrap(), 0);
             order_tree
                 .borrow_mut()
-                .insert_leaf(&mut root, &new_node(key, tif, -1))
-                .unwrap();
-        };
-        let mut add_pegged = |price_offset: i64, tif: u16, peg_limit: i64| {
-            let key = new_node_key(side, oracle_pegged_price_data(price_offset), 0);
-            order_tree
-                .borrow_mut()
-                .insert_leaf(&mut root_pegged, &new_node(key, tif, peg_limit))
+                .insert_leaf(&mut root, &new_node(key, tif))
                 .unwrap();
         };
 
         for (price, tif) in fixed {
             add_fixed(*price, *tif);
         }
-        for (price_offset, tif, limit) in pegged {
-            add_pegged(*price_offset, *tif, *limit);
-        }
 
         BookSide {
-            roots: [root_fixed, root_pegged],
-            reserved_roots: [OrderTreeRoot::zeroed(); 4],
-            reserved: [0; 256],
+            root,
             nodes: order_tree.into_inner(),
         }
     }
@@ -314,16 +296,16 @@ mod tests {
         };
 
         assert_eq!(order_prices(0), vec![120, 100, 90, 85, 80]);
-        assert_eq!(order_prices(1004, 100), vec![120, 100, 90, 85, 80]);
-        assert_eq!(order_prices(1005, 100), vec![100, 90, 85, 80]);
-        assert_eq!(order_prices(1006, 100), vec![100, 90, 85, 80]);
-        assert_eq!(order_prices(1007, 100), vec![100, 90, 85]);
-        assert_eq!(order_prices(0, 110), vec![120, 100, 100, 95, 90]);
-        assert_eq!(order_prices(0, 111), vec![120, 100, 96, 91]);
-        assert_eq!(order_prices(0, 115), vec![120, 100, 100, 95]);
-        assert_eq!(order_prices(0, 116), vec![120, 101, 100]);
-        assert_eq!(order_prices(0, 2015), vec![2000, 120, 100]);
-        assert_eq!(order_prices(1010, 2015), vec![2000, 100]);
+        assert_eq!(order_prices(1004), vec![120, 100, 90, 85, 80]);
+        assert_eq!(order_prices(1005), vec![100, 90, 85, 80]);
+        assert_eq!(order_prices(1006), vec![100, 90, 85, 80]);
+        assert_eq!(order_prices(1007), vec![100, 90, 85]);
+        assert_eq!(order_prices(0), vec![120, 100, 100, 95, 90]);
+        assert_eq!(order_prices(0), vec![120, 100, 96, 91]);
+        assert_eq!(order_prices(0), vec![120, 100, 100, 95]);
+        assert_eq!(order_prices(0), vec![120, 101, 100]);
+        assert_eq!(order_prices(0), vec![2000, 120, 100]);
+        assert_eq!(order_prices(1010), vec![2000, 100]);
     }
 
     #[test]
@@ -332,38 +314,32 @@ mod tests {
 
         let bookside = RefCell::new(bookside_setup());
 
-        let order_prices = |now_ts: u64, oracle: i64| -> Vec<i64> {
+        let order_prices = |now_ts: u64| -> Vec<i64> {
             bookside
                 .borrow()
-                .iter_valid(now_ts, oracle)
+                .iter_valid(now_ts)
                 .map(|it| it.price_lots)
                 .collect()
         };
 
-        // remove pegged order
-        assert_eq!(order_prices(0, 100), vec![120, 100, 90, 85, 80]);
-        let (_, p) = bookside.borrow_mut().remove_worst(0, 100).unwrap();
-        assert_eq!(p, 80);
-        assert_eq!(order_prices(0, 100), vec![120, 100, 90, 85]);
-
         // remove fixed order (order at 190=200-10 hits the peg limit)
-        assert_eq!(order_prices(0, 200), vec![185, 120, 100]);
-        let (_, p) = bookside.borrow_mut().remove_worst(0, 200).unwrap();
+        assert_eq!(order_prices(0), vec![185, 120, 100]);
+        let (_, p) = bookside.borrow_mut().remove_worst(0).unwrap();
         assert_eq!(p, 100);
-        assert_eq!(order_prices(0, 200), vec![185, 120]);
+        assert_eq!(order_prices(0), vec![185, 120]);
 
         // remove until end
 
-        assert_eq!(order_prices(0, 100), vec![120, 90, 85]);
-        let (_, p) = bookside.borrow_mut().remove_worst(0, 100).unwrap();
+        assert_eq!(order_prices(0), vec![120, 90, 85]);
+        let (_, p) = bookside.borrow_mut().remove_worst(0).unwrap();
         assert_eq!(p, 85);
-        assert_eq!(order_prices(0, 100), vec![120, 90]);
-        let (_, p) = bookside.borrow_mut().remove_worst(0, 100).unwrap();
+        assert_eq!(order_prices(0), vec![120, 90]);
+        let (_, p) = bookside.borrow_mut().remove_worst(0).unwrap();
         assert_eq!(p, 90);
-        assert_eq!(order_prices(0, 100), vec![120]);
-        let (_, p) = bookside.borrow_mut().remove_worst(0, 100).unwrap();
+        assert_eq!(order_prices(0), vec![120]);
+        let (_, p) = bookside.borrow_mut().remove_worst(0).unwrap();
         assert_eq!(p, 120);
-        assert_eq!(order_prices(0, 100), Vec::<i64>::new());
+        assert_eq!(order_prices(0), Vec::<i64>::new());
     }
 
     #[test]
@@ -371,8 +347,7 @@ mod tests {
         use std::cell::RefCell;
 
         let bookside = RefCell::new(bookside_setup_advanced(
-            &[],
-            &[(-100, 0, 50), (-20, 0, 50), (-30, 0, 50)],
+            &[(-100, 0), (-20, 0), (-30, 0)],
             Side::Ask,
         ));
 
