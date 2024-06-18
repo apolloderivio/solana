@@ -324,9 +324,8 @@ impl<'a> Orderbook<'a> {
         &mut self,
         mango_account_pk: &Pubkey,
         order_id: u128,
-        side_and_tree: SideAndOrderTree,
+        side: Side,
     ) -> Result<LeafNode, ProgramError> {
-        let side = side_and_tree.side();
         let leaf_node = self
             .bookside_mut(side)
             .remove_by_key(order_id)
