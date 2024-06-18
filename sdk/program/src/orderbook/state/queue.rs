@@ -195,8 +195,7 @@ pub struct FillEvent {
     pub event_type: u8,
     pub taker_side: u8, // Side, from the taker's POV
     pub maker_out: u8,  // 1 if maker order quantity == 0
-    pub maker_slot: u8,
-    pub padding: [u8; 4],
+    pub padding: [u8; 5],
     pub timestamp: u64,
     pub seq_num: u64,
 
@@ -223,7 +222,6 @@ impl FillEvent {
     pub fn new(
         taker_side: Side,
         maker_out: bool,
-        maker_slot: u8,
         timestamp: u64,
         seq_num: u64,
         maker: Pubkey,
@@ -239,7 +237,6 @@ impl FillEvent {
             event_type: EventType::Fill as u8,
             taker_side: taker_side.into(),
             maker_out: maker_out.into(),
-            maker_slot,
             timestamp,
             seq_num,
             maker,
@@ -309,8 +306,7 @@ impl<'a> TryFrom<&'a AnyEvent> for &'a FillEvent {
 pub struct OutEvent {
     pub event_type: u8,
     pub side: u8, // Side
-    pub owner_slot: u8,
-    padding0: [u8; 5],
+    padding0: [u8; 6],
     pub timestamp: u64,
     pub seq_num: u64,
     pub owner: Pubkey,
@@ -326,7 +322,6 @@ unsafe impl bytemuck::Zeroable for OutEvent {}
 impl OutEvent {
     pub fn new(
         side: Side,
-        owner_slot: u8,
         timestamp: u64,
         seq_num: u64,
         owner: Pubkey,
@@ -336,8 +331,7 @@ impl OutEvent {
         Self {
             event_type: EventType::Out.into(),
             side: side.into(),
-            owner_slot,
-            padding0: [0; 5],
+            padding0: [0; 6],
             timestamp,
             seq_num,
             owner,
@@ -350,7 +344,6 @@ impl OutEvent {
     pub fn from_leaf_node(side: Side, timestamp: u64, seq_num: u64, node: &LeafNode) -> Self {
         Self::new(
             side,
-            node.owner_slot,
             timestamp,
             seq_num,
             node.owner,

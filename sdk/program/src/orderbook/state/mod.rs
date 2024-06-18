@@ -1,4 +1,4 @@
-// pub mod book;
+pub mod book;
 pub mod bookside;
 pub mod bookside_iterator;
 pub mod nodes;
@@ -6,10 +6,10 @@ pub mod order;
 pub mod order_type;
 pub mod ordertree;
 pub mod ordertree_iterator;
-// pub mod perp_market;
+pub mod perp_market;
 pub mod queue;
 
-// pub use book::*;
+pub use book::*;
 pub use bookside::*;
 pub use bookside_iterator::*;
 pub use nodes::*;
@@ -17,5 +17,5 @@ pub use order::*;
 pub use order_type::*;
 pub use ordertree::*;
 pub use ordertree_iterator::*;
-// pub use perp_market::*;
+pub use perp_market::*;
 pub use queue::*;

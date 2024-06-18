@@ -40,6 +40,7 @@ thiserror = { workspace = true }
 # Needed for orderbook program
 static_assertions = "1.1.0"
 num_enum = "0.7.2"
+derivative = "2.2.0"
 
 # This is currently needed to build on-chain programs reliably.
 # Borsh 0.10 may pull in hashbrown 0.13, which uses ahash 0.8, which uses

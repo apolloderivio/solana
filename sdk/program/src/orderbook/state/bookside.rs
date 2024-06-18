@@ -1,5 +1,5 @@
 use super::*;
-use crate::{orderbook::error::MangoError, program_error::ProgramError, pubkey::Pubkey};
+use crate::{program_error::ProgramError, pubkey::Pubkey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use static_assertions::const_assert_eq;
 
@@ -182,7 +182,7 @@ mod tests {
             leaf_count: 0,
         };
         let new_leaf =
-            |key: u128| LeafNode::new(0, key, Pubkey::default(), 0, 1, PostOrderType::Limit, 0, 0);
+            |key: u128| LeafNode::new(key, Pubkey::default(), 0, 1, PostOrderType::Limit, 0, 0);
 
         // add 100 leaves to each BookSide, mostly random
         let mut keys = vec![];
@@ -256,7 +256,6 @@ mod tests {
         let mut root = OrderTreeRoot::zeroed();
         let new_node = |key: u128, tif: u16| {
             LeafNode::new(
-                0,
                 key,
                 Pubkey::default(),
                 0,

@@ -1,4 +1,4 @@
-use crate::orderbook::error::MangoError;
+use super::super::error::MangoError;
 use crate::program_error::ProgramError;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_enum::{IntoPrimitive, TryFromPrimitive};

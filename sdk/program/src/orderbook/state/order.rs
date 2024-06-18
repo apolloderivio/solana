@@ -1,4 +1,4 @@
-use super::order_type::{PostOrderType, SelfTradeBehavior, Side};
+use super::{PostOrderType, SelfTradeBehavior, Side};
 use crate::clock::Clock;
 use crate::program_error::ProgramError;
 use crate::sysvar::Sysvar;

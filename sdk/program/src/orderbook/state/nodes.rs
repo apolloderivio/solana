@@ -1,4 +1,4 @@
-use super::order_type::{PostOrderType, Side};
+use super::{PostOrderType, Side};
 use crate::{program_error::ProgramError, pubkey::Pubkey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{cast_mut, cast_ref};
@@ -125,12 +125,12 @@ pub struct LeafNode {
     pub tag: u8,
 
     /// Index into the owning MangoAccount's PerpOpenOrders
-    pub owner_slot: u8,
+    /// pub owner_slot: u8,
 
     /// PostOrderType, this was added for TradingView move order
     pub order_type: u8,
 
-    pub padding: [u8; 1],
+    pub padding: [u8; 2],
 
     /// Time in seconds after `timestamp` at which the order expires.
     /// A value of 0 means no expiry.
@@ -159,7 +159,7 @@ unsafe impl bytemuck::Pod for LeafNode {}
 unsafe impl bytemuck::Zeroable for LeafNode {}
 const_assert_eq!(
     size_of::<LeafNode>(),
-    4 + 1 + 1 + 1 + 1 + 16 + 32 + 8 + 8 + 8 + 40
+    4 + 2 + 1 + 1 + 16 + 32 + 8 + 8 + 8 + 40
 );
 const_assert_eq!(size_of::<LeafNode>(), NODE_SIZE);
 const_assert_eq!(size_of::<LeafNode>() % 8, 0);
@@ -167,7 +167,6 @@ const_assert_eq!(size_of::<LeafNode>() % 8, 0);
 impl LeafNode {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        owner_slot: u8,
         key: u128,
         owner: Pubkey,
         quantity: i64,
@@ -178,7 +177,6 @@ impl LeafNode {
     ) -> Self {
         Self {
             tag: NodeTag::LeafNode.into(),
-            owner_slot,
             order_type: order_type.into(),
             padding: Default::default(),
             time_in_force,

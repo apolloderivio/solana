@@ -550,7 +550,6 @@ mod tests {
         let mut bids = new_order_tree(OrderTreeType::Bids);
         let new_expiring_leaf = |key: u128, expiry: u64| {
             LeafNode::new(
-                0,
                 key,
                 Pubkey::default(),
                 0,
@@ -642,7 +641,6 @@ mod tests {
         let mut bids = new_order_tree(OrderTreeType::Bids);
         let new_expiring_leaf = |key: u128, expiry: u64| {
             LeafNode::new(
-                0,
                 key,
                 Pubkey::default(),
                 0,
