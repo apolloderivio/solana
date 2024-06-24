@@ -2,7 +2,6 @@ use super::super::error::MangoError;
 use super::*;
 use crate::{program_error::ProgramError, pubkey::Pubkey};
 use bytemuck::cast;
-use sha2::digest::consts::False;
 use std::cell::RefMut;
 
 /// Drop at most this many expired orders from a BookSide when trying to match orders.

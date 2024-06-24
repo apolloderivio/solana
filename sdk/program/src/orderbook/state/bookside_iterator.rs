@@ -42,18 +42,6 @@ pub enum OrderState {
     Skipped,
 }
 
-/// Replace the price data in a binary tree `key` with the fixed order price data at `price_lots`.
-///
-/// Used to convert oracle pegged keys into a form that allows comparison with fixed order keys.
-fn key_for_fixed_price(key: u128, price_lots: i64) -> u128 {
-    // We know this can never fail, because oracle pegged price will always be >= 1
-    assert!(price_lots >= 1);
-    let price_data = fixed_price_data(price_lots).unwrap();
-    let upper = (price_data as u128) << 64;
-    let lower = (key as u64) as u128;
-    upper | lower
-}
-
 /// Helper for the iterator returning a fixed order
 fn fixed_to_result(fixed: (NodeHandle, &LeafNode), now_ts: u64) -> BookSideIterItem {
     let (handle, node) = fixed;

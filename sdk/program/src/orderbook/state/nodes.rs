@@ -349,6 +349,7 @@ impl AsRef<AnyNode> for LeafNode {
 mod tests {
     use super::*;
     use borsh::BorshDeserialize;
+    use borsh::BorshSerialize;
     use solana_program::pubkey::Pubkey;
 
     #[test]
