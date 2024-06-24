@@ -9,7 +9,7 @@ use std::mem::{align_of, size_of};
 pub type NodeHandle = u32;
 const NODE_SIZE: usize = 120;
 
-#[derive(IntoPrimitive, TryFromPrimitive)]
+#[derive(Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub enum NodeTag {
     Uninitialized = 0,
@@ -343,5 +343,106 @@ impl AsRef<AnyNode> for LeafNode {
     #[inline]
     fn as_ref(&self) -> &AnyNode {
         cast_ref(self)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use borsh::BorshDeserialize;
+    use solana_program::pubkey::Pubkey;
+
+    #[test]
+    fn test_borsh_serialization_inner_node() {
+        let inner_node = InnerNode::new(5, 12345);
+        let mut serialized_data = Vec::new();
+        inner_node
+            .serialize(&mut serialized_data)
+            .expect("Inner node serialization failed");
+        let deserialized: InnerNode = InnerNode::try_from_slice(&serialized_data).unwrap();
+        assert_eq!(inner_node.tag, deserialized.tag);
+        assert_eq!(inner_node.prefix_len, deserialized.prefix_len);
+        assert_eq!(inner_node.key, deserialized.key);
+        assert_eq!(inner_node.children, deserialized.children);
+    }
+
+    #[test]
+    fn test_borsh_serialization_leaf_node() {
+        let owner = Pubkey::new_unique();
+        let leaf_node = LeafNode::new(
+            12345,
+            owner,
+            100,
+            1618884738,
+            PostOrderType::Limit,
+            300,
+            56789,
+        );
+        let mut serialized_data = Vec::new();
+        leaf_node
+            .serialize(&mut serialized_data)
+            .expect("Leaf node serialization failed");
+        let deserialized: LeafNode = LeafNode::try_from_slice(&serialized_data).unwrap();
+        assert_eq!(leaf_node.tag, deserialized.tag);
+        assert_eq!(leaf_node.order_type, deserialized.order_type);
+        assert_eq!(leaf_node.key, deserialized.key);
+        assert_eq!(leaf_node.owner, deserialized.owner);
+        assert_eq!(leaf_node.quantity, deserialized.quantity);
+        assert_eq!(leaf_node.timestamp, deserialized.timestamp);
+        assert_eq!(leaf_node.client_order_id, deserialized.client_order_id);
+    }
+
+    #[test]
+    fn test_any_node_conversion() {
+        let owner = Pubkey::new_unique();
+        let leaf_node = LeafNode::new(
+            12345,
+            owner,
+            100,
+            1618884738,
+            PostOrderType::Limit,
+            300,
+            56789,
+        );
+        let inner_node = InnerNode::new(5, 12345);
+
+        let any_leaf_node: &AnyNode = leaf_node.as_ref();
+        let leaf_node_tag: u8 = NodeTag::LeafNode.into();
+        assert_eq!(any_leaf_node.tag, leaf_node_tag);
+
+        let any_inner_node: &AnyNode = inner_node.as_ref();
+        let inner_node_tag: u8 = NodeTag::InnerNode.into();
+        assert_eq!(any_inner_node.tag, inner_node_tag);
+
+        let mut leaf_node_serialized_data = Vec::new();
+        any_leaf_node
+            .serialize(&mut leaf_node_serialized_data)
+            .expect("Leaf node serialization failed");
+        let deserialized_any_leaf: AnyNode =
+            AnyNode::try_from_slice(&leaf_node_serialized_data).unwrap();
+        let mut any_node_serialized_data = Vec::new();
+        any_inner_node
+            .serialize(&mut any_node_serialized_data)
+            .expect("Any node serialization failed");
+        let deserialized_any_inner: AnyNode =
+            AnyNode::try_from_slice(&any_node_serialized_data).unwrap();
+
+        let leaf_node_tag: u8 = NodeTag::LeafNode.into();
+        assert_eq!(deserialized_any_leaf.tag, leaf_node_tag);
+        let inner_node_tag: u8 = NodeTag::InnerNode.into();
+        assert_eq!(deserialized_any_inner.tag, inner_node_tag);
+
+        if let Some(NodeRef::Leaf(leaf_ref)) = deserialized_any_leaf.case() {
+            assert_eq!(leaf_ref.key, leaf_node.key);
+            assert_eq!(leaf_ref.owner, leaf_node.owner);
+        } else {
+            panic!("Deserialized AnyNode is not a LeafNode");
+        }
+
+        if let Some(NodeRef::Inner(inner_ref)) = deserialized_any_inner.case() {
+            assert_eq!(inner_ref.key, inner_node.key);
+            assert_eq!(inner_ref.prefix_len, inner_node.prefix_len);
+        } else {
+            panic!("Deserialized AnyNode is not an InnerNode");
+        }
     }
 }
