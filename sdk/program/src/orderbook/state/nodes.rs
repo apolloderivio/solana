@@ -345,10 +345,3 @@ impl AsRef<AnyNode> for LeafNode {
         cast_ref(self)
     }
 }
-
-/// Retrieves the price offset (in lots) from an oracle pegged order's price data
-///
-/// Reverse of oracle_pegged_price_data()
-pub fn oracle_pegged_price_offset(price_data: u64) -> i64 {
-    price_data.wrapping_sub(u64::MAX / 2 + 1) as i64
-}
