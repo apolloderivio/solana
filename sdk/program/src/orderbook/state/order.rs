@@ -94,12 +94,3 @@ fn market_order_limit_for_side(side: Side) -> i64 {
         Side::Ask => 1,
     }
 }
-
-/// The limit to use for PostOnlySlide orders: the tinyest bit better than
-/// the best opposing order
-fn post_only_slide_limit(side: Side, best_other_side: i64, limit: i64) -> i64 {
-    match side {
-        Side::Bid => limit.min(best_other_side - 1),
-        Side::Ask => limit.max(best_other_side + 1),
-    }
-}
