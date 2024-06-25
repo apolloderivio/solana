@@ -56,8 +56,6 @@ impl<'a> Orderbook<'a> {
         // matched_changes/matched_deletes and then applied after this loop.
         let mut remaining_base_lots = order.max_base_lots;
         let mut remaining_quote_lots = order.max_quote_lots;
-        let mut decremented_base_lots = 0i64;
-        let mut decremented_quote_lots = 0i64;
         let mut orders_to_change: Vec<(NodeHandle, i64)> = vec![];
         let mut orders_to_delete: Vec<(NodeHandle, u128)> = vec![];
         let mut number_of_dropped_expired_orders = 0;
@@ -111,10 +109,7 @@ impl<'a> Orderbook<'a> {
             if order_would_self_trade {
                 match order.self_trade_behavior {
                     SelfTradeBehavior::DecrementTake => {
-                        // remember all decremented quote lots to only charge fees on not-self-trades
-                        decremented_quote_lots += match_quote_lots;
-                        // decremented base lots are only tracked for logging
-                        decremented_base_lots += match_base_lots;
+                        // do nothing, just match
                     }
                     SelfTradeBehavior::CancelProvide => {
                         let event = OutEvent::from_leaf_node(
@@ -211,7 +206,7 @@ impl<'a> Orderbook<'a> {
                 .unwrap()
                 .quantity = new_quantity;
         }
-        for (component, key) in orders_to_delete {
+        for (_component, key) in orders_to_delete {
             let _removed_leaf = opposing_bookside.remove_by_key(key).unwrap();
         }
 

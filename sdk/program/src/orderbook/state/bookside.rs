@@ -346,4 +346,126 @@ mod tests {
         assert_eq!(p, 120);
         assert_eq!(order_prices(0), Vec::<i64>::new());
     }
+
+    fn bookside_setup_complex(fixed: &[(i64, u16, u64)], side: Side) -> BookSide {
+        let order_tree_type = match side {
+            Side::Bid => OrderTreeType::Bids,
+            Side::Ask => OrderTreeType::Asks,
+        };
+
+        let order_tree = RefCell::new(new_order_tree(order_tree_type));
+        let mut root = OrderTreeRoot::zeroed();
+
+        let new_node = |price: i64, tif: u16, ts: u64| {
+            LeafNode::new(
+                new_node_key(side, fixed_price_data(price).unwrap(), 0),
+                Pubkey::default(),
+                1000, // quantity
+                ts,   // timestamp
+                PostOrderType::Limit,
+                tif,
+                0, // client_order_id
+            )
+        };
+        let mut add_fixed = |price: i64, tif: u16, ts: u64| {
+            order_tree
+                .borrow_mut()
+                .insert_leaf(&mut root, &new_node(price, tif, ts))
+                .unwrap();
+        };
+
+        for (price, tif, ts) in fixed {
+            add_fixed(*price, *tif, *ts);
+        }
+
+        BookSide {
+            root,
+            nodes: order_tree.into_inner(),
+        }
+    }
+
+    #[test]
+    fn test_iter_valid() {
+        let bookside = bookside_setup_complex(
+            &[
+                (100, 0, 10), // not expire
+                (120, 5, 20), // expire at 25
+                (130, 3, 15), // expire at 18
+                (110, 7, 25), // expire at 32
+                (140, 2, 5),  // expire at 7
+            ],
+            Side::Bid,
+        );
+
+        // Now at timestamp 0, all orders should be valid
+        let now_ts = 0;
+        let prices: Vec<i64> = bookside
+            .iter_valid(now_ts)
+            .map(|it| it.price_lots)
+            .collect();
+        assert_eq!(prices, vec![140, 130, 120, 110, 100]);
+        assert_eq!(bookside.impact_price(3000, now_ts).unwrap(), 120);
+        assert_eq!(
+            bookside
+                .matched_quantity((140 + 130 + 120) * 1000, now_ts)
+                .unwrap(),
+            3000
+        );
+
+        // Now at timestamp 7, orders expiring at or before 20 should be excluded
+        let now_ts = 7;
+        let prices: Vec<i64> = bookside
+            .iter_valid(now_ts)
+            .map(|it| it.price_lots)
+            .collect();
+        assert_eq!(prices, vec![130, 120, 110, 100]);
+        assert_eq!(bookside.impact_price(3000, now_ts).unwrap(), 110);
+        assert_eq!(
+            bookside
+                .matched_quantity((140 + 130 + 120) * 1000, now_ts)
+                .unwrap(),
+            3300
+        );
+
+        // Now at timestamp 10, orders expiring at or before 10 should be excluded
+        let now_ts = 10;
+        let prices: Vec<i64> = bookside
+            .iter_valid(now_ts)
+            .map(|it| it.price_lots)
+            .collect();
+        assert_eq!(prices, vec![130, 120, 110, 100]);
+        assert_eq!(bookside.impact_price(3000, now_ts).unwrap(), 110);
+        assert_eq!(
+            bookside
+                .matched_quantity((140 + 130 + 120) * 1000, now_ts)
+                .unwrap(),
+            3300
+        );
+
+        // Now at timestamp 25, orders expiring at or before 15 should be excluded
+        let now_ts = 25;
+        let prices: Vec<i64> = bookside
+            .iter_valid(now_ts)
+            .map(|it| it.price_lots)
+            .collect();
+        assert_eq!(prices, vec![110, 100]);
+        assert_eq!(bookside.impact_price(3000, now_ts), None);
+        assert_eq!(
+            bookside.matched_quantity((140 + 130 + 120) * 1000, now_ts),
+            None
+        );
+
+        // Now at timestamp 32, only order not expired exists
+        let now_ts = 32;
+        let prices: Vec<i64> = bookside
+            .iter_valid(now_ts)
+            .map(|it| it.price_lots)
+            .collect();
+        assert_eq!(prices, vec![100]);
+        assert_eq!(bookside.impact_price(3000, now_ts), None);
+        assert_eq!(
+            bookside.matched_quantity((140 + 130 + 120) * 1000, now_ts),
+            None
+        );
+    }
 }
