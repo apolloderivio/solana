@@ -62,6 +62,7 @@ impl<'a> Orderbook<'a> {
         let opposing_bookside = self.bookside_mut(other_side);
         for best_opposing in opposing_bookside.iter_all_including_invalid(now_ts) {
             if remaining_base_lots == 0 || remaining_quote_lots == 0 {
+                println!("remaining_base_lots: {}, break here.", remaining_base_lots);
                 break;
             }
 
@@ -161,42 +162,12 @@ impl<'a> Orderbook<'a> {
             );
             event_queue.push_back(cast(fill)).unwrap();
             limit -= 1;
-
-            // emit_stack(FilledPerpOrderLog {
-            //     mango_group: market.group.key(),
-            //     perp_market_index: market.perp_market_index,
-            //     seq_num,
-            // });
         }
 
         let total_quote_lots_taken = order.max_quote_lots - remaining_quote_lots;
         let total_base_lots_taken = order.max_base_lots - remaining_base_lots;
         assert!(total_quote_lots_taken >= 0);
         assert!(total_base_lots_taken >= 0);
-
-        // Record the taker trade in the account already, even though it will only be
-        // realized when the fill event gets executed
-        // if total_quote_lots_taken > 0 || total_base_lots_taken > 0 {
-        //     perp_position.add_taker_trade(side, total_base_lots_taken, total_quote_lots_taken);
-        //     // reduce fees to apply by decrement take volume
-        //     let taker_fees_paid = apply_fees(
-        //         market,
-        //         mango_account,
-        //         total_quote_lots_taken - decremented_quote_lots,
-        //     )?;
-        //     emit_stack(PerpTakerTradeLog {
-        //         mango_group: market.group.key(),
-        //         mango_account: *account_pk,
-        //         perp_market_index: market.perp_market_index,
-        //         taker_side: side as u8,
-        //         total_base_lots_taken,
-        //         total_base_lots_decremented: decremented_base_lots,
-        //         total_quote_lots_taken,
-        //         total_quote_lots_decremented: decremented_quote_lots,
-        //         taker_fees_paid: taker_fees_paid.to_bits(),
-        //         fee_penalty: fee_penalty.to_bits(),
-        //     });
-        // }
 
         // Apply changes to matched asks (handles invalidate on delete!)
         for (handle, new_quantity) in orders_to_change {
@@ -533,7 +504,7 @@ mod tests {
         // Place a maker-bid
         let price_lots = 1000 * market.base_lot_size / market.quote_lot_size;
         let bid_quantity = 10;
-        let id = book
+        let id: Option<u128> = book
             .new_order(
                 Order {
                     side: Side::Bid,
@@ -554,12 +525,11 @@ mod tests {
                 now_ts,
                 u8::MAX,
             )
-            .unwrap()
             .unwrap();
-        let order = order_tree_leaf_by_key(&book.bids, id).unwrap();
+        let order = order_tree_leaf_by_key(&book.bids, id.unwrap()).unwrap();
         assert_eq!(order.client_order_id, 42);
         assert_eq!(order.quantity, bid_quantity);
-        assert!(order_tree_contains_key(&book.bids, id));
+        assert!(order_tree_contains_key(&book.bids, id.unwrap()));
         assert!(order_tree_contains_price(&book.bids, price_lots as u64));
         assert_eq!(event_queue.len(), 0);
 
@@ -586,11 +556,11 @@ mod tests {
                 now_ts,
                 u8::MAX,
             )
-            .unwrap()
             .unwrap();
+        assert_eq!(id2, None);
         // the remainder of the maker order is still on the book
         // (the maker account is unchanged: it was not even passed in)
-        let order = order_tree_leaf_by_key(&book.bids, id2).unwrap();
+        let order = order_tree_leaf_by_key(&book.bids, id.unwrap()).unwrap();
         assert_eq!(fixed_price_lots(order.price_data()), price_lots);
         assert_eq!(order.quantity, bid_quantity - match_quantity);
 
