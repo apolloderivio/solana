@@ -1,5 +1,5 @@
 use super::*;
-use crate::{orderbook::error::MangoError, program_error::ProgramError};
+use crate::orderbook::error::OrderbookError;
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{cast, cast_mut, cast_ref};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -275,7 +275,7 @@ impl OrderTreeNodes {
     }
 
     /// Internal: Adds only the node, does not add parent links etc, use insert_leaf()
-    fn insert(&mut self, val: &AnyNode) -> Result<NodeHandle, ProgramError> {
+    fn insert(&mut self, val: &AnyNode) -> Result<NodeHandle, OrderbookError> {
         match NodeTag::try_from(val.tag) {
             Ok(NodeTag::InnerNode) | Ok(NodeTag::LeafNode) => (),
             _ => unreachable!(),
@@ -283,7 +283,7 @@ impl OrderTreeNodes {
 
         if self.free_list_len == 0 {
             if self.bump_index as usize >= self.nodes.len() || self.bump_index >= u32::MAX {
-                return Err(MangoError::SomeError.into());
+                return Err(OrderbookError::SomeError);
             }
 
             self.nodes[self.bump_index as usize] = *val;
@@ -313,7 +313,7 @@ impl OrderTreeNodes {
         &mut self,
         root: &mut OrderTreeRoot,
         new_leaf: &LeafNode,
-    ) -> Result<(NodeHandle, Option<LeafNode>), ProgramError> {
+    ) -> Result<(NodeHandle, Option<LeafNode>), OrderbookError> {
         // path of InnerNode handles that lead to the new leaf
         let mut stack: Vec<(NodeHandle, bool)> = vec![];
 

@@ -1,5 +1,4 @@
-use super::super::error::MangoError;
-use crate::program_error::ProgramError;
+use super::super::error::OrderbookError;
 use borsh::{BorshDeserialize, BorshSerialize};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -37,10 +36,10 @@ pub enum PlaceOrderType {
 }
 
 impl PlaceOrderType {
-    pub fn to_post_order_type(&self) -> Result<PostOrderType, ProgramError> {
+    pub fn to_post_order_type(&self) -> Result<PostOrderType, OrderbookError> {
         match *self {
-            Self::Market => Err(MangoError::SomeError.into()),
-            Self::ImmediateOrCancel => Err(MangoError::SomeError.into()),
+            Self::Market => Err(OrderbookError::SomeError),
+            Self::ImmediateOrCancel => Err(OrderbookError::SomeError),
             Self::Limit => Ok(PostOrderType::Limit),
             Self::PostOnly => Ok(PostOrderType::PostOnly),
         }

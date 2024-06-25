@@ -1,6 +1,6 @@
-use super::super::error::MangoError;
+use super::super::error::OrderbookError;
 use super::*;
-use crate::{program_error::ProgramError, pubkey::Pubkey};
+use crate::pubkey::Pubkey;
 use bytemuck::cast;
 use std::cell::RefMut;
 
@@ -39,10 +39,10 @@ impl<'a> Orderbook<'a> {
         order: Order,
         market: &mut PerpMarket,
         event_queue: &mut EventQueue,
-        mango_account_pk: &Pubkey,
+        account_pk: &Pubkey,
         now_ts: u64,
         mut limit: u8,
-    ) -> std::result::Result<Option<u128>, ProgramError> {
+    ) -> std::result::Result<Option<u128>, OrderbookError> {
         let side = order.side;
         let other_side = side.invert_side();
         let post_only = order.is_post_only();
@@ -105,7 +105,7 @@ impl<'a> Orderbook<'a> {
                 .min(max_match_by_quote);
             let match_quote_lots = match_base_lots * best_opposing_price;
 
-            let order_would_self_trade = *mango_account_pk == best_opposing.node.owner;
+            let order_would_self_trade = *account_pk == best_opposing.node.owner;
             if order_would_self_trade {
                 match order.self_trade_behavior {
                     SelfTradeBehavior::DecrementTake => {
@@ -125,7 +125,7 @@ impl<'a> Orderbook<'a> {
                         continue;
                     }
                     SelfTradeBehavior::AbortTransaction => {
-                        return Err(MangoError::WouldSelfTrade.into())
+                        return Err(OrderbookError::WouldSelfTrade)
                     }
                 }
                 assert!(order.self_trade_behavior == SelfTradeBehavior::DecrementTake);
@@ -154,7 +154,7 @@ impl<'a> Orderbook<'a> {
                 best_opposing.node.key,
                 best_opposing.node.client_order_id,
                 best_opposing.node.timestamp,
-                *mango_account_pk,
+                *account_pk,
                 order.client_order_id,
                 best_opposing_price,
                 match_base_lots,
@@ -185,7 +185,7 @@ impl<'a> Orderbook<'a> {
         //     )?;
         //     emit_stack(PerpTakerTradeLog {
         //         mango_group: market.group.key(),
-        //         mango_account: *mango_account_pk,
+        //         mango_account: *account_pk,
         //         perp_market_index: market.perp_market_index,
         //         taker_side: side as u8,
         //         total_base_lots_taken,
@@ -244,13 +244,13 @@ impl<'a> Orderbook<'a> {
             if bookside.is_full() {
                 // If this bid is higher than lowest bid, boot that bid and insert this one
                 let (worst_order, worst_price) = bookside.remove_worst(now_ts).unwrap();
-                // MangoErrorCode::OutOfSpace
+                // OrderbookErrorCode::OutOfSpace
                 if !side.is_price_better(price_lots, worst_price) {
-                    return Err(MangoError::SomeError.into());
+                    return Err(OrderbookError::SomeError);
                 }
                 // require!(
                 //     side.is_price_better(price_lots, worst_price),
-                //     MangoError::SomeError
+                //     OrderbookError::SomeError
                 // );
                 let event = OutEvent::from_leaf_node(
                     side,
@@ -265,7 +265,7 @@ impl<'a> Orderbook<'a> {
             let new_order = LeafNode::new(
                 // owner_slot as u8,
                 order_id,
-                *mango_account_pk,
+                *account_pk,
                 book_base_quantity,
                 now_ts,
                 PostOrderType::Limit, // TODO: Support order types? needed?
@@ -300,36 +300,20 @@ impl<'a> Orderbook<'a> {
         }
     }
 
-    /// Cancels up to `limit` orders that are listed on the mango account for the given perp market.
-    /// Optionally filters by `side_to_cancel_option`.
-    /// The orders are removed from the book and from the mango account open order list.
-    pub fn cancel_all_orders(
-        &mut self,
-        mango_account_pk: &Pubkey,
-        perp_market: &mut PerpMarket,
-        mut limit: u8,
-        side_to_cancel_option: Option<Side>,
-    ) -> std::result::Result<(), ProgramError> {
-        todo!();
-    }
-
     /// Cancels an order on a side, removing it from the book
     pub fn cancel_order_by_id(
         &mut self,
-        mango_account_pk: &Pubkey,
-        order_id: u128,
+        account_pk: &Pubkey,
+        id: u128,
         side: Side,
-    ) -> Result<LeafNode, ProgramError> {
-        let leaf_node = self
-            .bookside_mut(side)
-            .remove_by_key(order_id)
-            .ok_or_else(|| {
-                // possibly already filled or expired?
-                // error_msg_typed!(MangoError::PerpOrderIdNotFound, "no perp order with id {order_id}, side {side:?}, component {book_component:?} found on the orderbook")
-                MangoError::PerpOrderIdNotFound
-            })?;
-        if leaf_node.owner != *mango_account_pk {
-            return Err(MangoError::SomeError.into());
+    ) -> Result<LeafNode, OrderbookError> {
+        let leaf_node = self.bookside_mut(side).remove_by_key(id).ok_or_else(|| {
+            // possibly already filled or expired?
+            // error_msg_typed!(OrderbookError::PerpOrderIdNotFound, "no perp order with id {order_id}, side {side:?}, component {book_component:?} found on the orderbook")
+            OrderbookError::PerpOrderIdNotFound
+        })?;
+        if leaf_node.owner != *account_pk {
+            return Err(OrderbookError::SomeError);
         }
         Ok(leaf_node)
     }

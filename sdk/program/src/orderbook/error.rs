@@ -1,12 +1,13 @@
+use crate::decode_error::DecodeError;
 use num_enum::IntoPrimitive;
-use solana_program::{entrypoint::ProgramResult, msg, program_error::ProgramError};
+use solana_program::program_error::ProgramError;
 use thiserror::Error;
 
 // todo: group error blocks by kind
 // todo: add comments which indicate decimal code for an error
 #[derive(Error, Debug, Clone, PartialEq, Eq, IntoPrimitive)]
 #[repr(u32)]
-pub enum MangoError {
+pub enum OrderbookError {
     #[error("")]
     SomeError,
     #[error("")]
@@ -153,26 +154,16 @@ pub enum MangoError {
     InvalidSequenceNumber,
     #[error("invalid health")]
     InvalidHealth,
-    #[error("no free openbook v2 open orders index")]
-    NoFreeOpenbookV2OpenOrdersIndex,
-    #[error("openbook v2 open orders exist already")]
-    OpenbookV2OpenOrdersExistAlready,
 }
 
-impl From<MangoError> for ProgramError {
-    fn from(e: MangoError) -> Self {
+impl From<OrderbookError> for ProgramError {
+    fn from(e: OrderbookError) -> Self {
         ProgramError::Custom(e as u32)
     }
 }
 
-#[track_caller]
-#[inline(always)]
-pub fn assert_with_msg(v: bool, err: impl Into<ProgramError>, msg: &str) -> ProgramResult {
-    if v {
-        Ok(())
-    } else {
-        let caller = std::panic::Location::caller();
-        msg!("{}. \n{}", msg, caller);
-        Err(err.into())
+impl<E> DecodeError<E> for OrderbookError {
+    fn type_of() -> &'static str {
+        "OrderbookError"
     }
 }

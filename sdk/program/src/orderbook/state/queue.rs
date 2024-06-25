@@ -1,5 +1,5 @@
 use super::{LeafNode, Side};
-use crate::{orderbook::error::MangoError, program_error::ProgramError, pubkey::Pubkey};
+use crate::{orderbook::error::OrderbookError, pubkey::Pubkey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{cast_ref, Pod, Zeroable};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -76,9 +76,9 @@ impl EventQueue {
         Some(&mut self.buf[self.header.head()])
     }
 
-    pub fn pop_front(&mut self) -> Result<AnyEvent, ProgramError> {
+    pub fn pop_front(&mut self) -> Result<AnyEvent, OrderbookError> {
         if self.is_empty() {
-            return Err(MangoError::SomeError.into());
+            return Err(OrderbookError::SomeError);
         }
 
         let value = self.buf[self.header.head()];
@@ -92,9 +92,9 @@ impl EventQueue {
         Ok(value)
     }
 
-    pub fn revert_pushes(&mut self, desired_len: usize) -> Result<(), ProgramError> {
+    pub fn revert_pushes(&mut self, desired_len: usize) -> Result<(), OrderbookError> {
         if desired_len > self.header.count() {
-            return Err(MangoError::SomeError.into());
+            return Err(OrderbookError::SomeError);
         }
         let len_diff = self.header.count() - desired_len;
         self.header.set_count(desired_len as u32);
@@ -269,15 +269,15 @@ impl FillEvent {
 }
 
 impl TryFrom<AnyEvent> for FillEvent {
-    type Error = ProgramError;
+    type Error = OrderbookError;
 
-    fn try_from(e: AnyEvent) -> Result<Self, ProgramError> {
+    fn try_from(e: AnyEvent) -> Result<Self, OrderbookError> {
         if e.event_type != EventType::Fill as u8 {
             // Err(error_msg!(
             //     "could not convert event with type={} to FillEvent",
             //     e.event_type
             // ))
-            Err(ProgramError::InvalidArgument)
+            Err(OrderbookError::SomeError)
         } else {
             Ok(*cast_ref(&e))
         }
@@ -285,15 +285,15 @@ impl TryFrom<AnyEvent> for FillEvent {
 }
 
 impl<'a> TryFrom<&'a AnyEvent> for &'a FillEvent {
-    type Error = ProgramError;
+    type Error = OrderbookError;
 
-    fn try_from(e: &'a AnyEvent) -> Result<Self, ProgramError> {
+    fn try_from(e: &'a AnyEvent) -> Result<Self, OrderbookError> {
         if e.event_type != EventType::Fill as u8 {
             // Err(error_msg!(
             //     "could not convert event with type={} to FillEvent",
             //     e.event_type
             // ))
-            Err(ProgramError::InvalidArgument)
+            Err(OrderbookError::SomeError)
         } else {
             Ok(cast_ref(e))
         }
@@ -358,15 +358,15 @@ impl OutEvent {
 }
 
 impl TryFrom<AnyEvent> for OutEvent {
-    type Error = ProgramError;
+    type Error = OrderbookError;
 
-    fn try_from(e: AnyEvent) -> Result<Self, ProgramError> {
+    fn try_from(e: AnyEvent) -> Result<Self, OrderbookError> {
         if e.event_type != EventType::Out as u8 {
             // Err(error_msg!(
             //     "could not convert event with type={} to OutEvent",
             //     e.event_type
             // ))
-            Err(ProgramError::InvalidArgument)
+            Err(OrderbookError::SomeError)
         } else {
             Ok(*cast_ref(&e))
         }
@@ -374,15 +374,15 @@ impl TryFrom<AnyEvent> for OutEvent {
 }
 
 impl<'a> TryFrom<&'a AnyEvent> for &'a OutEvent {
-    type Error = ProgramError;
+    type Error = OrderbookError;
 
-    fn try_from(e: &'a AnyEvent) -> Result<Self, ProgramError> {
+    fn try_from(e: &'a AnyEvent) -> Result<Self, OrderbookError> {
         if e.event_type != EventType::Out as u8 {
             // Err(error_msg!(
             //     "could not convert event with type={} to OutEvent",
             //     e.event_type
             // ))
-            Err(ProgramError::InvalidArgument)
+            Err(OrderbookError::SomeError)
         } else {
             Ok(cast_ref(e))
         }

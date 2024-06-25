@@ -1,5 +1,5 @@
+use super::super::error::OrderbookError;
 use super::*;
-use crate::program_error::ProgramError;
 use borsh::{BorshDeserialize, BorshSerialize};
 use static_assertions::const_assert_eq;
 
@@ -54,7 +54,7 @@ impl BookSide {
     pub fn insert_leaf(
         &mut self,
         new_leaf: &LeafNode,
-    ) -> Result<(NodeHandle, Option<LeafNode>), ProgramError> {
+    ) -> Result<(NodeHandle, Option<LeafNode>), OrderbookError> {
         self.nodes.insert_leaf(&mut self.root, new_leaf)
     }
 

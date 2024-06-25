@@ -1,5 +1,5 @@
 pub mod error;
-pub mod instructions;
+pub mod instruction;
 pub mod state;
 
 pub mod program {

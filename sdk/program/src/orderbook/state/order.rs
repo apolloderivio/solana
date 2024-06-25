@@ -1,6 +1,6 @@
+use super::super::error::OrderbookError;
 use super::{PostOrderType, SelfTradeBehavior, Side};
 use crate::clock::Clock;
-use crate::program_error::ProgramError;
 use crate::sysvar::Sysvar;
 
 /// Perp order parameters
@@ -77,7 +77,7 @@ impl Order {
 
     /// Compute the price_lots this order is currently at, as well as the price_data that
     /// would be stored in its OrderTree node if the order is posted to the orderbook.
-    pub fn price(&self) -> Result<(i64, u64), ProgramError> {
+    pub fn price(&self) -> Result<(i64, u64), OrderbookError> {
         let price_lots = match self.params {
             OrderParams::Market { .. } => market_order_limit_for_side(self.side),
             OrderParams::ImmediateOrCancel { price_lots, .. } => price_lots,
